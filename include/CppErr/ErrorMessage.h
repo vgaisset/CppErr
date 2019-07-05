@@ -37,7 +37,20 @@ public:
      * @return
      * The message describing the error.
      */
-    const std::string & message();
+    const std::string & message() const;
+
+    /**
+     * @brief
+     * Checks if the given ErrorType is the same than the one used when creating this error message.
+     * This function works only with type inherited from cpperr::ErrorType<id>.
+     * Returns true if the error type is the same than given type, false otherwise.
+     * @return
+     * True if the last error type is the same than given type, false otherwise.
+     */
+    template<class TErrorType>
+    bool is() const {
+        return TErrorType::id() == typeId_;
+    }
 };
 
 }

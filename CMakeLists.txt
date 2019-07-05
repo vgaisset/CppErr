@@ -4,6 +4,14 @@ project(CppErr VERSION 0.1
     LANGUAGES CXX
 )
 
+# Must the tests be built ?
+set(BUILD_TESTS TRUE)
+
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
+
 set(SRCS
     src/CppErr/Error.cpp
     src/CppErr/ErrorMessage.cpp

@@ -29,7 +29,7 @@ int cpperr::ErrorMessage::typeId() const
     return typeId_;
 }
 
-const std::string &cpperr::ErrorMessage::message()
+const std::string &cpperr::ErrorMessage::message() const
 {
     return message_;
 }
