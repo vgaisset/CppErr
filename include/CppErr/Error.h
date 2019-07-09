@@ -1,15 +1,14 @@
 #pragma once
 
-#include <CppErr/ErrorMessage.h>
+#include <CppErr/ErrorType.h>
 
 #include <iostream>
 #include <vector>
 #include <type_traits>
 #include <memory>
 
-
-#define ERR_ADD_T(err, message, type_name) err.add(message, type_name::id(), __FILE__, __LINE__)
-#define ERR_ADD(err, message) err.add(message, cpperr::GenericError::id())
+#define ERR_ADD(err, err_message) \
+    err.add(err_message, __FILE__, __LINE__)
 
 namespace cpperr {
 
@@ -25,8 +24,9 @@ using Err = const Error &;
  * if the Error is a const-variable.
  * -> An alias can be used to use cpperr::Error as const& variable : cpperr::Err.
  * -> Two macros are available to help writting code :
- * ERR_ADD(err, message) : Adds the message to the error, set the error as a GenericError and set filename and line.
- * ERR_ADD_T(err, message, type_name) : Same as ERR_ADD but uses type_name instead of GenericError.
+ * ERR_ADD(err, err_message) : Adds the ErrorMessage to the error and set filename and line.
+ * The err_message parameter can also be string and will be considered as a
+ * cpperr::GenericError.
  */
 class Error {
 
@@ -66,6 +66,21 @@ public:
      * Adds an error to the stack.
      * The macro ERROR(err, msg) can be used to
      * add the message 'msg' to the Error 'err'.
+     * @param errorMessage
+     * The ErrorMessage to add to the error.
+     * @param typeId
+     * The id of the type representing the error.
+     * @param fileName
+     * The filename of the file where the error occured on.
+     * @param line
+     * The line number where the error occured.
+     */
+    void add(const ErrorMessage &errorMessage, const std::string & fileName = "Unknown File", int line = -1) const;
+
+    /**
+     * @brief
+     * Shortcut for adding an ErrorMessage with no ErrorType.
+     * See the other add() function for more informations.
      * @param message
      * The message describing the error.
      * @param typeId
@@ -75,7 +90,7 @@ public:
      * @param line
      * The line number where the error occured.
      */
-    void add(const std::string & message, int typeId = cpperr::GenericError::id(), const std::string & fileName = "Unknown File", int line = -1) const;
+    void add(const std::string & message, const std::string & fileName = "Unknown File", int line = -1) const;
 
     /**
      * @brief
@@ -103,6 +118,15 @@ public:
      * It can be used to check if an error happened.
      */
     operator bool () const;
+
+    /**
+     * @brief
+     * Adds other's ErrorMessages into this instance of Error.
+     * @param other
+     * @return
+     * The instance of error.
+     */
+    Error& operator << (const Error & other);
 
     /**
      * @brief

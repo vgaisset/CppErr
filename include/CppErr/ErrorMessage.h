@@ -1,7 +1,5 @@
 #pragma once
 
-#include <CppErr/ErrorType.h>
-
 #include <string>
 
 namespace cpperr {

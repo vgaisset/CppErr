@@ -23,5 +23,13 @@ int main() {
     found = err.last().message().find("Another generic error.");
     test(found != std::string::npos, "Last message is supposed to contain 'Another generic error.' but does not.");
 
+    Error err2;
+
+    ERR_ADD(err2, "An err2 message.");
+
+    err << err2;
+
+    std::cout << err << std::endl;
+
     return 0;
 }

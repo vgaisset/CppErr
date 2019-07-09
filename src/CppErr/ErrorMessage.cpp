@@ -1,4 +1,5 @@
 #include <CppErr/ErrorMessage.h>
+#include <CppErr/ErrorType.h>
 
 cpperr::ErrorMessage::ErrorMessage() :
     typeId_{cpperr::GenericError::id()},

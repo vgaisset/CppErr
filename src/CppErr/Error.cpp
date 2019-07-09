@@ -21,7 +21,7 @@ const ErrorMessage & Error::last() const
     return stack_[stack_.size()-1];
 }
 
-void Error::add(const std::string &message, int typeId, const std::string &fileName, int line) const
+void Error::add(const ErrorMessage &errorMessage, const std::string &fileName, int line) const
 {
     // We do not add anything on the special Error.
     if(this == &_)
@@ -29,8 +29,13 @@ void Error::add(const std::string &message, int typeId, const std::string &fileN
 
     std::stringstream ss;
 
-    ss << message << "\nAt " << fileName << ", on line " << line << ". Error Type Id : " << typeId << ".\n";
-    stack_.emplace_back(typeId, ss.str());
+    ss << errorMessage.message() << "\nAt " << fileName << ", on line " << line << ". Error Type Id : " << errorMessage.typeId() << ".\n";
+    stack_.emplace_back(errorMessage.typeId(), ss.str());
+}
+
+void Error::add(const std::string &message, const std::string &fileName, int line) const
+{
+    add(cpperr::GenericError::defaultError(message), fileName, line);
 }
 
 void Error::clear() const
@@ -38,12 +43,18 @@ void Error::clear() const
     stack_.clear();
 }
 
+Error &Error::operator <<(const Error &other)
+{
+    stack_.insert(stack_.end(), other.stack_.begin(), other.stack_.end());
+    return *this;
+}
+
 Error::operator bool() const
 {
     return hasErrors();
 }
 
-std::ostream & operator<<(std::ostream &out, const Error &error)
+std::ostream & cpperr::operator<<(std::ostream &out, const Error &error)
 {
     if(error.stack_.empty()) {
         out << "No errors to show.";
