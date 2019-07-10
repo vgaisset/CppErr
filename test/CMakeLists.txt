@@ -12,7 +12,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 #############################################
 function(CREATE_TEST)
     set(TEST_NAME ${ARGV0})
-    set(BIN_NAME ${TEST_NAME}_bin)
+    set(BIN_NAME ${TEST_NAME})
 
     # Adds test binary to binaries list (for linking, if needed).
     set(TEST_BIN_NAMES ${TEST_BIN_NAMES} "${BIN_NAME}" PARENT_SCOPE)
@@ -27,8 +27,8 @@ function(CREATE_TEST)
     add_test(NAME "${TEST_NAME}" COMMAND "${BIN_NAME}")
 endfunction()
 
-CREATE_TEST(basic_error_objects_operations basicErrorObjectsOperations.cpp)
-CREATE_TEST(error_types errorTypes.cpp)
+CREATE_TEST(error_test ErrorTest.cpp)
+CREATE_TEST(error_type_test ErrorTypeTest.cpp)
 
 # Link libraries for all tests.
 foreach(TEST_BIN_NAME IN LISTS TEST_BIN_NAMES)

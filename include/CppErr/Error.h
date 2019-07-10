@@ -18,6 +18,35 @@ using Err = const Error &;
 
 /**
  * @brief
+ * An error message associated to a filename and a line number;
+ */
+class LocatedErrorMessage {
+private:
+    ErrorMessage errorMessage_;
+    std::string fileName_;
+    int line_;
+
+public:
+    LocatedErrorMessage(const ErrorMessage & errorMessage, const std::string & fileName, int line);
+
+    const std::string & message() const;
+    const std::string & fileName() const;
+    int line() const;
+    int typeId() const;
+
+    template<class TErrorType>
+    bool is() const {
+        return errorMessage_.is<TErrorType>();
+    }
+
+
+    friend std::ostream& operator <<(std::ostream& out, const LocatedErrorMessage & errorMessage);
+};
+
+using ErrorStack = std::vector<LocatedErrorMessage>;
+
+/**
+ * @brief
  * -> Represents an error. It holds a stack in which new ErrorMessages can
  * be added.
  * -> Please notice that ErrorMessages can be added to the stack even
@@ -31,7 +60,7 @@ using Err = const Error &;
 class Error {
 
 public:
-    mutable std::vector<ErrorMessage> stack_;
+    mutable ErrorStack stack_;
 
     Error() = default;
     explicit Error(const Error &) = default; // Set as explicit in order to prevent problems when passing Error as a copy parameter.
@@ -40,7 +69,7 @@ public:
      * @brief stack
      * @return
      */
-    const std::vector<ErrorMessage>& stack() const;
+    const ErrorStack& stack() const;
 
     /**
      * @brief
@@ -59,7 +88,7 @@ public:
      * @return
      * The last ErrorMessage in the stack.
      */
-    const ErrorMessage &last() const;
+    const LocatedErrorMessage &last() const;
 
     /**
      * @brief
@@ -75,7 +104,7 @@ public:
      * @param line
      * The line number where the error occured.
      */
-    void add(const ErrorMessage &errorMessage, const std::string & fileName = "Unknown File", int line = -1) const;
+    void add(const ErrorMessage & errorMessage, const std::string & fileName = "Unknown File", int line = -1) const;
 
     /**
      * @brief
@@ -109,7 +138,7 @@ public:
      */
     template<class TErrorType>
     bool is() const {
-        return TErrorType::id() == last().typeId();
+        return last().is<TErrorType>();
     }
 
     /**
@@ -138,6 +167,9 @@ public:
      */
     friend std::ostream& operator <<(std::ostream& out, const Error & error);
 };
+
+std::ostream& operator <<(std::ostream& out, const Error & error);
+std::ostream& operator <<(std::ostream& out, const LocatedErrorMessage & errorMessage);
 
 /**
  * @brief

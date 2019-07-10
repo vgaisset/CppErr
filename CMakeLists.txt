@@ -4,10 +4,7 @@ project(CppErr VERSION 0.1
     LANGUAGES CXX
 )
 
-# Must the tests be built ?
-set(BUILD_TESTS TRUE)
-
-if(BUILD_TESTS)
+if(NOT DEFINED CPPERR_BUILD_TESTS OR CPPERR_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif()
@@ -17,7 +14,11 @@ set(SRCS
     src/CppErr/ErrorMessage.cpp
 )
 
-add_library(${PROJECT_NAME} ${SRCS})
+if(NOT DEFINED CPPERR_BUILD_TYPE)
+    add_library(${PROJECT_NAME} SHARED ${SRCS})
+else()
+    add_library(${PROJECT_NAME} ${CPPERR_BUILD_TYPE} ${SRCS})
+endif()
 
 # Add include path
 target_include_directories(${PROJECT_NAME} PUBLIC
