@@ -1,6 +1,6 @@
 # CppErr
 
-CppErr is a minimalistic library for error handling in C++.
+CppErr is a minimalistic library for error handling in C++11.
 You can create errors, stack them, give a type to an error and show stacktrace. 
 
 ## Installation
@@ -120,7 +120,7 @@ A custom error with a message
 =============== 2 errors shown
 ```
 
-Also, you can implements your own functions on your error types using the **ERR_CLASS** macro.
+Also, you can implement your own functions for your error types using the **ERR_CLASS** macro.
 Let's take the example above back :
 
 ```c++
@@ -137,7 +137,7 @@ int main() {
     // Adds an error message with the MyCustomError type, with a message.
     ERR_ADD(err, MyCustomError::defaultError("A custom error with a message"));
 
-    // The same as above, but without message.
+    // This time we use our own function.
     ERR_ADD(err, MyCustomError::newError("a message."));
 
     // You can then check error messages' type.
@@ -164,7 +164,7 @@ My implementaion : a message.
 =============== 2 errors shown
 ```
 
-Please note that you can specify namespaces where your error types are created using the **ERR_CLASS_NS** and **ERR_DECL_NS** macros. Namespaces are important to avoid clash when checking error type for two error types with the same name. When there is a namespace specified, it's taken in account when creating the error type's id.
+Please note that you can specify namespaces of where your error types are created using the **ERR_CLASS_NS** and **ERR_DECL_NS** macros. Namespaces are important to avoid clash when checking error type for two error types with the same name. When there is a namespace specified, it's taken in account when creating the error type's id.
 
 For more advanced examples check [here](https://github.com/vgaisset/CppErr/tree/master/examples).
 
