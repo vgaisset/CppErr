@@ -5,18 +5,24 @@
 
 using namespace cpperr;
 
-ERR_CLASS(ClassName, {
+ERR_CLASS(ClassName,
 public :
     static std::string aFunction() { return "a string"; }
-};)
+    static int sum(int a, int b) { return a + b; }
+);
 
-ERR_CLASS_NS(ns, ClassName, {
-public:
-    static std::string aFunction() { return "a string"; }
-};)
+namespace ns {
+
+    ERR_CLASS_NS(ns, ClassName,
+    public:
+        static std::string aFunction() { return "a string"; }
+    );
+
+    ERR_DECL_NS(ns, DeclName);
+
+}
 
 ERR_DECL(DeclName);
-ERR_DECL_NS(ns, DeclName);
 
 TEST_CASE("Error type tests", "[CppErr]") {
 
@@ -30,11 +36,21 @@ TEST_CASE("Error type tests", "[CppErr]") {
         REQUIRE(ns::ClassName::aFunction() == "a string");
     }
 
+    SECTION("Implemented functions can have multiple parameters.") {
+        REQUIRE(ClassName::sum(1, 2) == 3);
+    }
+
     SECTION("function defaultError must return an error message with ErrorType id and a custom message.") {
-        const ErrorMessage msg = DeclName::defaultError("A test message.");
+        ErrorMessage msg = ns::DeclName::defaultError("A test message.");
 
         REQUIRE(msg.message() == "A test message.");
-        REQUIRE(msg.typeId() == DeclName::id());
+        REQUIRE(msg.typeId() == ns::DeclName::id());
+        REQUIRE(msg.typeName() == "DeclName");
+        REQUIRE(msg.namespaceName() == "ns");
+
+        msg = DeclName::defaultError();
+
+        REQUIRE(msg.namespaceName() == "");
 
         SECTION("The error message can use the is<type> function to check if it corresponds to an ErrorType.") {
             REQUIRE(msg.is<DeclName>());

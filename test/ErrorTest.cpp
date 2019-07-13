@@ -42,11 +42,24 @@ TEST_CASE("Error tests", "[CppErr]") {
         }
     }
 
-    ERR_ADD(err, "An error");
+    SECTION("Concatenation of multiple non empty errors must increase the stack.") {
+        cpperr::Error err1, err2;
+
+        err1 << "An error.";
+        err2 << "Another error.";
+
+        err << err1 << err2;
+
+        REQUIRE(err.stack().size() == 2);
+        REQUIRE(err.stack()[0].message() == "An error.");
+        REQUIRE(err.stack()[1].message() == "Another error.");
+    }
+
+    ERR_ADD(err, "An error"); const int lineNumber = __LINE__;
 
     SECTION("Adding error message using a macro must add filename and line of where the error happened.") {
-        REQUIRE(err.last().line() == 45);
-        REQUIRE(err.last().fileName().find("ErrorTest.cpp") != std::string::npos);
+        REQUIRE(err.last().line() == lineNumber);
+        REQUIRE(err.last().fileName() == __FILE__);
     }
 
     SECTION("A default error message must be of ErrorType cpperr:GenericError.") {

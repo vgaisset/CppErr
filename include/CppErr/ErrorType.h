@@ -2,21 +2,41 @@
 
 #include <CppErr/ErrorMessage.h>
 
+#include <memory>
 #include <string>
 
-#define ERR_CLASS(type_name, class_code) \
-    class type_name : public cpperr::ErrorType<#type_name ""_cpperr_hash> class_code
-
 #define ERR_CLASS_NS(namespace_name, type_name, class_code) \
-    namespace namespace_name { \
-        class type_name : public cpperr::ErrorType<#namespace_name "" #type_name ""_cpperr_hash> class_code \
-    }
+    class type_name : public cpperr::ErrorType<#namespace_name "" #type_name ""_cpperr_hash> { \
+    public: \
+        static constexpr char const * const namespaceName =   "" #namespace_name; \
+        static constexpr char const * const typeName      =   "" #type_name; \
+        static cpperr::ErrorMessage defaultError() { \
+            return cpperr::ErrorMessage(id(), namespaceName, typeName); \
+        } \
+        static cpperr::ErrorMessage defaultError(const std::string & message) { \
+            return cpperr::ErrorMessage(id(), namespaceName, typeName, message); \
+        } \
+    private: \
+        class_code }
 
-#define ERR_DECL(type_name) \
-    ERR_CLASS(type_name, {};)
+#define ERR_CLASS(type_name, class_code) \
+    ERR_CLASS_NS(, type_name, class_code)
 
 #define ERR_DECL_NS(namespace_name, type_name) \
-    ERR_CLASS_NS(namespace_name, type_name, {};)
+    ERR_CLASS_NS(namespace_name, type_name,)
+
+#define ERR_DECL(type_name) \
+    ERR_DECL_NS(, type_name)
+
+constexpr int operator"" _cpperr_hash(const char * s, size_t)
+{
+    unsigned int hash = 0;
+
+    while(*s)
+        hash = hash * 101 + static_cast<unsigned>(*s++);
+
+    return static_cast<int>(hash);
+}
 
 namespace cpperr {
 
@@ -25,15 +45,14 @@ namespace cpperr {
  * -> Template class for types representing errors.
  * -> Each error type has an id_value (hash of the class name) calculated at compile-time
  * and used to identify errors to a given type.
- * -> Three macros are available to help writting code :
- * ERR_CLASS(type_name, class_code) Creates a class named type_name which inherits from ErrorType with a unique id.
- * The id is generated using class name hash.
- * The class code has to be implemented via the class_code parameter.
- * ERR_CLASS_NS(namespace_name, type_name, class_code) Creates a class in the given namespace, which inherits from ErrorType with a unique id.
- * The id is generated using both namespace name and class name hash.
- * The class code has to be implemented via the class_code parameter.
- * ERR_DECL(type_name) Calls ERR_CLASS with an empty class implementation : {};.
- * ERR_DECL_NS(namespace_name, type_name) Calls ERR_CLASS_NS with an empty class implementation : {};.
+ * -> Four macros are available to help writting code :
+ * ERR_CLASS_NS(namespace_name, type_name, class_code) Creates a class type_name BUT NOT in the given namespace namespace_name.
+ * The created class inherits from ErrorType and has a unique id. The namespace_name is only used to create the unique id, in addition to
+ * the type_name.
+ * The class code has to be implemented via the class_code parameter. The class code is set as this : class type_name { class_code }.
+ * ERR_CLASS(type_name, class_code) Calls ERR_CLASS_NS with an empty namespace_name. See ERR_CLASS_NS for more informations.
+ * ERR_DECL_NS(namespace_name, type_name) Calls ERR_CLASS_NS with an empty class_code. See ERR_CLASS_NS for more informations.
+ * ERR_DECL(type_name) Calls ERR_DECL_NS with an empty namespace_name. See ERR_DECL_NS for more informations.
  */
 template<int id_value>
 class ErrorType
@@ -50,47 +69,14 @@ public:
     constexpr static int id() {
         return id_value;
     }
-
-    /**
-     * @brief
-     * Creates an ErrorMessage associated to the current ErrorType with no message
-     * and returns it.
-     * @return
-     * A new ErrorMessage with no message and associated to the current ErrorType.
-     */
-    static ErrorMessage defaultError() {
-        return ErrorMessage(id_value);
-    }
-
-    /**
-     * @brief
-     * Creates an ErrorMessage associated to the current ErrorType with the given message
-     * and returns it.
-     * @param message
-     * The message to use in the created ErrorMessage.
-     * @return
-     * A new ErrorMessage with the given message and associated to the current ErrorType.
-     */
-    static ErrorMessage defaultError(const std::string & message) {
-        return ErrorMessage(id_value, message);
-    }
 };
-
-}
-
-constexpr int operator"" _cpperr_hash(const char * s, size_t)
-{
-    unsigned int hash = 0;
-
-    while(*s)
-        hash = hash * 101 + static_cast<unsigned>(*s++);
-
-    return static_cast<int>(hash);
-}
 
 /**
  * @brief
  * A generic error for errors without specified type.
  */
 ERR_DECL_NS(cpperr, GenericError);
+
+}
+
 

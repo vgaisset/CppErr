@@ -21,7 +21,7 @@ const LocatedErrorMessage &Error::last() const
     return stack_[stack_.size()-1];
 }
 
-void Error::add(const ErrorMessage &errorMessage, const std::string &fileName, int line) const
+void Error::add(const ErrorMessage &errorMessage, const std::string &fileName, int line)
 {
     // We do not add anything on the special Error.
     if(this == &_)
@@ -30,12 +30,12 @@ void Error::add(const ErrorMessage &errorMessage, const std::string &fileName, i
     stack_.emplace_back(errorMessage, fileName, line);
 }
 
-void Error::add(const std::string &message, const std::string &fileName, int line) const
+void Error::add(const std::string &message, const std::string &fileName, int line)
 {
     add(cpperr::GenericError::defaultError(message), fileName, line);
 }
 
-void Error::clear() const
+void Error::clear()
 {
     stack_.clear();
 }
@@ -47,6 +47,18 @@ Error &Error::operator <<(const Error &other)
     return *this;
 }
 
+Error &Error::operator <<(const std::string &message)
+{
+    add(message);
+    return *this;
+}
+
+Error &Error::operator <<(const ErrorMessage &errorMessage)
+{
+    add(errorMessage);
+    return *this;
+}
+
 Error::operator bool() const
 {
     return hasErrors();
@@ -55,52 +67,15 @@ Error::operator bool() const
 std::ostream & cpperr::operator<<(std::ostream &out, const Error &error)
 {
     if(error.stack_.empty()) {
-        out << "No errors to show.";
+        out << "No errors to show.\n";
         return out;
     }
 
     out << "=============== STACK TRACE (" << error.stack_.size() << ")\n\n";
-    out << "== first -> " << error.stack_[0] << "\n";
+    out << "=(1)=" << " first -> " << error.stack_[0] << "\n";
 
     for(size_t index = 1; index < error.stack_.size(); ++index)
-        out << "== Then  -> " << error.stack_[index] << "\n";
+        out << "=(" << std::to_string(index+1) << ")= Then  -> " << error.stack_[index] << "\n";
 
     return out << "=============== " << error.stack_.size() << " errors shown\n";
-}
-
-std::ostream & cpperr::operator <<(std::ostream &out, const LocatedErrorMessage &errorMessage)
-{
-    out << errorMessage.message() << "\nAt "
-        << errorMessage.fileName() << ", on line "
-        << errorMessage.line() << ". Error Type Id : "
-        << errorMessage.typeId() << ".\n";
-
-    return out;
-}
-
-LocatedErrorMessage::LocatedErrorMessage(const ErrorMessage &errorMessage, const std::string &fileName, int line) :
-    errorMessage_(errorMessage),
-    fileName_(fileName),
-    line_(line)
-{
-}
-
-const std::string &LocatedErrorMessage::message() const
-{
-    return errorMessage_.message();
-}
-
-const std::string &LocatedErrorMessage::fileName() const
-{
-    return fileName_;
-}
-
-int LocatedErrorMessage::line() const
-{
-    return line_;
-}
-
-int LocatedErrorMessage::typeId() const
-{
-    return errorMessage_.typeId();
 }
