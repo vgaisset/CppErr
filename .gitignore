@@ -1,2 +1,4 @@
+a.out
 *.user
 build/
+.vscode/

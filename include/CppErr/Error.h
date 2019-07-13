@@ -1,50 +1,48 @@
 #pragma once
 
-#include <CppErr/ErrorMessage.h>
+#include <CppErr/ErrorType.h>
 
 #include <iostream>
 #include <vector>
 #include <type_traits>
 #include <memory>
 
-
-#define ERR_ADD_T(err, message, type_name) err.add(message, type_name::id(), __FILE__, __LINE__)
-#define ERR_ADD(err, message) err.add(message, cpperr::GenericError::id())
+#define ERR_ADD(err, err_message) \
+    err.add(err_message, __FILE__, __LINE__)
 
 namespace cpperr {
 
 class Error;
 
-using Err = const Error &;
+using ErrorStack = std::vector<LocatedErrorMessage>;
 
 /**
  * @brief
  * -> Represents an error. It holds a stack in which new ErrorMessages can
  * be added.
- * -> Please notice that ErrorMessages can be added to the stack even
- * if the Error is a const-variable.
- * -> An alias can be used to use cpperr::Error as const& variable : cpperr::Err.
- * -> Two macros are available to help writting code :
- * ERR_ADD(err, message) : Adds the message to the error, set the error as a GenericError and set filename and line.
- * ERR_ADD_T(err, message, type_name) : Same as ERR_ADD but uses type_name instead of GenericError.
+ * -> One macro is available to help writting code :
+ * ERR_ADD(err, err_message) : Adds the ErrorMessage to the error and set filename and line.
+ * The err_message parameter can also be string and will be considered as a
+ * cpperr::GenericError.
  */
 class Error {
 
 public:
-    mutable std::vector<ErrorMessage> stack_;
+    ErrorStack stack_;
 
     Error() = default;
-    explicit Error(const Error &) = default; // Set as explicit in order to prevent problems when passing Error as a copy parameter.
-
-    /**
-     * @brief stack
-     * @return
-     */
-    const std::vector<ErrorMessage>& stack() const;
 
     /**
      * @brief
-     * Does the error holds ErrorMessages on its stack ?
+     * The stack containing LocatedErrorMessages.
+     * @return
+     * Returns the stack containing LocatedErrorMessages.
+     */
+    const ErrorStack& stack() const;
+
+    /**
+     * @brief
+     * Does the error hold at least one ErrorMessage on its stack ?
      * @return
      * True if there are one or more ErrorMessages on the stack, false otherwise.
      */
@@ -59,13 +57,29 @@ public:
      * @return
      * The last ErrorMessage in the stack.
      */
-    const ErrorMessage &last() const;
+    const LocatedErrorMessage &last() const;
 
     /**
      * @brief
      * Adds an error to the stack.
      * The macro ERROR(err, msg) can be used to
-     * add the message 'msg' to the Error 'err'.
+     * add the message 'msg' to the Error 'err' wtih __FILE__ as fileName and __LINE__ as line.
+     * @param errorMessage
+     * The ErrorMessage to add to the error.
+     * @param typeId
+     * The id of the type representing the error.
+     * @param fileName
+     * The filename of the file where the error occured on.
+     * @param line
+     * The line number where the error occured.
+     */
+    void add(const ErrorMessage & errorMessage, const std::string & fileName = LocatedErrorMessage::defaultFileName,
+                                                int line = LocatedErrorMessage::defaultLineNumber);
+
+    /**
+     * @brief
+     * Shortcut for adding an ErrorMessage with no ErrorType.
+     * See the other add() function for more informations.
      * @param message
      * The message describing the error.
      * @param typeId
@@ -75,26 +89,26 @@ public:
      * @param line
      * The line number where the error occured.
      */
-    void add(const std::string & message, int typeId = cpperr::GenericError::id(), const std::string & fileName = "Unknown File", int line = -1) const;
+    void add(const std::string & message, const std::string & fileName = LocatedErrorMessage::defaultFileName,
+                                          int line = LocatedErrorMessage::defaultLineNumber);
 
     /**
      * @brief
      * Clears the stack.
      */
-    void clear() const;
+    void clear();
 
     /**
      * @brief
-     * Checks if the given ErrorType is the same than the last error one.
-     * Like the last() function, this function must be called only if there are elements
-     * on the stack. This function works only with type inherited from cpperr::ErrorType<id>.
-     * Returns true if the last error type is the same than given type, false otherwise.
+     * Checks if the given ErrorType is the same than the one of the last error message on the stack.
+     * If there is no error on the stack, returns false.
+     * Returns true if the last error message's type is the same than the given type, false otherwise.
      * @return
-     * True if the last error type is the same than given type, false otherwise.
+     * True if the last error  message's type is the same than the given type, false otherwise.
      */
     template<class TErrorType>
     bool is() const {
-        return TErrorType::id() == last().typeId();
+        return hasErrors() && last().is<TErrorType>();
     }
 
     /**
@@ -106,6 +120,35 @@ public:
 
     /**
      * @brief
+     * Adds other's ErrorMessages into this instance of Error.
+     * @param other
+     * @return
+     * The instance of error.
+     */
+     Error& operator << (const Error & other);
+
+    /**
+     * @brief
+     * Shortcut for this->add(message);
+     * @param message
+     * The message to add to the stack.
+     * @return
+     * The instance of error.
+     */
+    Error &operator <<(const std::string & message);
+
+    /**
+     * @brief
+     * Shortcut for this->add(errorMessage);
+     * @param errorMessage
+     * The error message to add to the stack.
+     * @return
+     * The instance of error.
+     */
+    Error& operator << (const ErrorMessage & errorMessage);
+
+    /**
+     * @brief
      * Prints the stack on the given output stream.
      * @param out
      * The output stream to print the stack on.
@@ -114,6 +157,8 @@ public:
      */
     friend std::ostream& operator <<(std::ostream& out, const Error & error);
 };
+
+std::ostream& operator <<(std::ostream& out, const Error & error);
 
 /**
  * @brief
