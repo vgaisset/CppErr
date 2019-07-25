@@ -32,7 +32,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-set(project_config_name ${PROJECT_NAME}-config)
+set(project_config_name ${PROJECT_NAME}Config)
 set(install_lib_folder ${CMAKE_INSTALL_PREFIX}/lib)
 set(install_include_folder ${CMAKE_INSTALL_PREFIX}/include)
 set(install_config_folder ${install_lib_folder}/${PROJECT_NAME})
