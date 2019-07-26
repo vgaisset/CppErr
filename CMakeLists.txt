@@ -17,6 +17,7 @@ endif()
 set(src
     src/CppErr/Error.cpp
     src/CppErr/ErrorMessage.cpp
+    src/CppErr/Result.cpp
 )
 
 # Library creation.
