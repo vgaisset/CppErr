@@ -6,6 +6,16 @@ cpperr::Error cpperr::_;
 
 using namespace cpperr;
 
+Error::Error(const ErrorMessage &errorMessage, const std::string &fileName, int line)
+{
+    add(errorMessage, fileName, line);
+}
+
+Error::Error(const std::string &message, const std::string &fileName, int line)
+{
+    add(message, fileName, line);
+}
+
 const ErrorStack &Error::stack() const
 {
     return stack_;
@@ -66,7 +76,7 @@ Error::operator bool() const
 
 std::ostream & cpperr::operator<<(std::ostream &out, const Error &error)
 {
-    if(error.stack_.empty()) {
+    if(!error.hasErrors()) {
         out << "No errors to show.\n";
         return out;
     }

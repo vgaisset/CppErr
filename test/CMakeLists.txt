@@ -29,6 +29,7 @@ endfunction()
 
 CREATE_TEST(error_test ErrorTest.cpp)
 CREATE_TEST(error_type_test ErrorTypeTest.cpp)
+CREATE_TEST(result_test ResultTest.cpp)
 
 # Link libraries for all tests.
 foreach(TEST_BIN_NAME IN LISTS TEST_BIN_NAMES)

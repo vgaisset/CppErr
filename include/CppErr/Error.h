@@ -28,9 +28,13 @@ using ErrorStack = std::vector<LocatedErrorMessage>;
 class Error {
 
 public:
-    ErrorStack stack_;
-
     Error() = default;
+
+    Error(const ErrorMessage & errorMessage, const std::string & fileName = LocatedErrorMessage::defaultFileName,
+                                             int line = LocatedErrorMessage::defaultLineNumber);
+
+    Error(const std::string & message, const std::string & fileName = LocatedErrorMessage::defaultFileName,
+                                       int line = LocatedErrorMessage::defaultLineNumber);
 
     /**
      * @brief
@@ -156,6 +160,9 @@ public:
      * The output stream.
      */
     friend std::ostream& operator <<(std::ostream& out, const Error & error);
+
+private:
+    ErrorStack stack_;
 };
 
 std::ostream& operator <<(std::ostream& out, const Error & error);

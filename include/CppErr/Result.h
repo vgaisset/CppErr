@@ -1,10 +1,18 @@
 #include <CppErr/Error.h>
 #include <exception>
 
-#define ERR_RESULT(type, error_message) { cpperr::Error err; ERR_ADD(err, error_message); cpperr::Result<type>::error(err); }
+#define ERR_RESULT(type, error_message) cpperr::Result<type>::emplaceError(error_message, __FILE__, __LINE__)
 
 namespace cpperr {
 
+/**
+ * @brief
+ * -> An exception constructed using a cpperr::Error.
+ * The stack trace contained in the error is saved as a string
+ * and can be accessed through the what() function.
+ * -> This exception is thrown when accessing an invalid field
+ * in a cpperr::Result object.
+ */
 class Exception : public std::exception {
 private:
     std::string message_;
@@ -17,90 +25,174 @@ public:
 
 ERR_DECL_NS(cpperr, ResultIsSuccessfulError);
 
-template<typename R>
-union ResultStorage {
-public:
-    R result;
-    Error error;
-};
+/**
+ * @brief
+ * Constexpr function which returns the maximum
+ * between to size_t. Can be used at compile-time.
+ * @param left
+ * The first size_t to compare.
+ * @param right
+ * The second size_t to compare.
+ * @return
+ * The max between left and right.
+ */
+constexpr size_t max_size(size_t left, size_t right) {
+    return left > right ? left : right;
+}
 
 template<typename R>
 class Result {
 public:
-    Result(const Result &)  = default;
-    Result(Result &&)       = default;
+    /**
+     * @brief
+     * Copy constructor.
+     * Explicitly call copy constructor for object contained in the result.
+     * @param other
+     * The Result to copy.
+     */
+    Result(const Result & other) :
+        isSuccess_{other.isSuccess_}
+    {
+        if(isSuccess_)
+            new (dataAsResult()) R(*reinterpret_cast<const R *>(other.data_));
+        else
+            new (dataAsError()) Error(*reinterpret_cast<const Error *>(other.data_));
+    }
 
-    static Result<R> success(const R & object) {
+    /**
+     * @brief
+     * Move constructor.
+     * Explicitly call move constructor for object contained in the result.
+     * @param other
+     * The Result to move.
+     */
+    Result(Result && other) :
+        isSuccess_{std::move(other.isSuccess_)}
+    {
+        if(isSuccess_)
+            new (dataAsResult()) R(std::move(*reinterpret_cast<R *>(other.data_)));
+        else
+            new (dataAsError()) Error(std::move(*reinterpret_cast<Error *>(other.data_)));
+    }
+
+    /**
+     * @brief
+     * Creates a Result<R> containing an object of type R and calls
+     * the copy constructor with the objectToCopy as parameter.
+     * @param objectToCopy
+     * The R object given to the object constructor.
+     * @return
+     * A new Result<R>.
+     */
+    static Result<R> copySuccess(const R & objectToCopy) {
         Result r;
-        r.result_.result = object;
+        new (r.dataAsResult()) R(objectToCopy);
         r.isSuccess_ = true;
 
         return std::move(r);
     }
 
-    static Result<R> moveSuccess(R & object) {
+    /**
+     * @brief
+     * Creates a Result<R> containing an object of type R and calls
+     * the move constructor with the objectToMove as parameter.
+     * @param objectToMove
+     * The R object given to the object constructor.
+     * @return
+     * A new Result<R>.
+     */
+    static Result<R> moveSuccess(R && objectToMove) {
         Result r;
-        r.result_.result = std::move(object);
+        new (r.dataAsResult()) R(objectToMove);
         r.isSuccess_ = true;
 
         return std::move(r);
     }
 
+    /**
+     * @brief
+     * Creates a Result<R> and emplace an object R.
+     * @param args
+     * The R object constrcutor arguments.
+     * @return
+     * A new Result<R>.
+     */
     template<typename ... Args>
     static Result<R> emplaceSuccess(Args && ...args) {
         Result r;
-        r.result_.result = R(std::forward(args)...);
+        new (r.dataAsResult()) R(std::forward<Args>(args)...);
         r.isSuccess_ = true;
 
         return std::move(r);
     }
 
-    static Result<R> error(Result<R> & other) {
+    /**
+     * @brief
+     * Creates a Result<R> with an error and moves
+     * @param other
+     * @return
+     */
+    static Result<R> errorFromResult(Result<R> & other) {
         Result<R> r;
-        r.result_.error = std::move(other.error());
+        new (r.dataAsError()) Error(std::move(other.error()));
         r.isSuccess_ = false;
 
         return std::move(r);
     }
 
-    static Result<R> error(const Error & error = Error()) {
+    static Result<R> copyError(const Error & error) {
         Result<R> r;
-        r.result_.error = error;
+        new (r.dataAsError()) Error(error);
         r.isSuccess_ = false;
 
         return std::move(r);
     }
 
-    static Result<R> error(const ErrorMessage & errorMessage) {
-        return error(Error() << errorMessage);
+    static Result<R> moveError(Error && error) {
+        Result<R> r;
+        new (r.dataAsError()) Error(error);
+        r.isSuccess_ = false;
+
+        return std::move(r);
     }
 
-    static Result<R> error(const std::string & message) {
-        return error(ErrorMessage(message));
+    template<typename ...Args>
+    static Result<R> emplaceError(Args && ...args) {
+        Result<R> r;
+        new (r.dataAsError()) Error(std::forward<Args>(args)...);
+        r.isSuccess_ = false;
+
+        return std::move(r);
     }
 
-    R& get() const {
+    R& result() {
         if(isSuccess_)
-            return result_.result;
+            return *dataAsResult();
 
-        throw Exception(result_.error);
+        throw Exception(*dataAsError());
     }
 
-    Error& error() const {
-        if(!isSuccess_)
-            return result_.error;
+    Error& error() {
+        if(hasError())
+            return *dataAsError();
 
         Error err;
         err.add(ResultIsSuccessfulError::defaultError());
         throw Exception(err);
     }
 
-    R& operator * () override {
-        return get();
+    Result<R> throwIfError() {
+        if(hasError())
+            throw Exception(*dataAsError());
+        return *this;
     }
 
-    R& operator -> () override {
-        return get();
+    R& operator * () {
+        return result();
+    }
+
+    R* operator -> () {
+        return &result();
     }
 
     bool hasError() const {
@@ -111,11 +203,27 @@ public:
         return isSuccess_;
     }
 
+    ~Result() {
+        if(isSuccess_)
+            dataAsResult()->~R();
+        else
+            dataAsError()->~Error();
+    }
 private:
     Result()                = default;
 
+    inline R* dataAsResult() {
+        return reinterpret_cast<R*>(&data_);
+    }
+
+    inline Error* dataAsError() {
+        return reinterpret_cast<Error*>(&data_);
+    }
+
 private:
-    ResultStorage<R> result_;
+    // data holds result_ or error_ content.
+    char data_[max_size(sizeof(R), sizeof(Error))];
+
     bool isSuccess_;
 };
 
