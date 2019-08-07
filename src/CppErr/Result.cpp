@@ -2,6 +2,16 @@
 
 #include <sstream>
 
+cpperr::Exception::Exception() {
+    Error err;
+    err << ResultIsSuccessfulError::defaultError();
+
+    std::stringstream ss;
+    ss << err;
+
+    message_ = ss.str();
+}
+
 cpperr::Exception::Exception(const Error &error)
 {
     std::stringstream ss;

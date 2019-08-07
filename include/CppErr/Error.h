@@ -10,6 +10,8 @@
 #define ERR_ADD(err, err_message) \
     err.add(err_message, __FILE__, __LINE__)
 
+#define ERR_NEW(err_message) cpperr::Error(err_message, __FILE__, __LINE__)
+
 namespace cpperr {
 
 class Error;

@@ -1,6 +1,8 @@
 #include <CppErr/Error.h>
 #include <exception>
 
+#include <type_traits>
+
 #define ERR_RESULT(type, error_message) cpperr::Result<type>::emplaceError(error_message, __FILE__, __LINE__)
 
 namespace cpperr {
@@ -18,6 +20,7 @@ private:
     std::string message_;
 
 public:
+    Exception();
     Exception(const Error & error);
 
     const char * what() const noexcept override;
@@ -40,8 +43,8 @@ constexpr size_t max_size(size_t left, size_t right) {
     return left > right ? left : right;
 }
 
-template<typename R>
-class Result {
+template<typename R, typename E>
+class Expected {
 public:
     /**
      * @brief
@@ -50,13 +53,13 @@ public:
      * @param other
      * The Result to copy.
      */
-    Result(const Result & other) :
+    Expected(const Expected & other) :
         isSuccess_{other.isSuccess_}
     {
         if(isSuccess_)
-            new (dataAsResult()) R(*reinterpret_cast<const R *>(other.data_));
+            new (dataAsResult()) R(*other.dataAsResult());
         else
-            new (dataAsError()) Error(*reinterpret_cast<const Error *>(other.data_));
+            new (dataAsError()) E(*other.dataAsError());
     }
 
     /**
@@ -66,13 +69,13 @@ public:
      * @param other
      * The Result to move.
      */
-    Result(Result && other) :
+    Expected(Expected && other) :
         isSuccess_{std::move(other.isSuccess_)}
     {
         if(isSuccess_)
-            new (dataAsResult()) R(std::move(*reinterpret_cast<R *>(other.data_)));
+            new (dataAsResult()) R(std::move(*other.dataAsResult()));
         else
-            new (dataAsError()) Error(std::move(*reinterpret_cast<Error *>(other.data_)));
+            new (dataAsError()) E(std::move(*other.dataAsError()));
     }
 
     /**
@@ -84,12 +87,10 @@ public:
      * @return
      * A new Result<R>.
      */
-    static Result<R> copySuccess(const R & objectToCopy) {
-        Result r;
-        new (r.dataAsResult()) R(objectToCopy);
-        r.isSuccess_ = true;
-
-        return std::move(r);
+    Expected(const R & objectToCopy) :
+        isSuccess_{true}
+    {
+        new (dataAsResult()) R(objectToCopy);
     }
 
     /**
@@ -101,12 +102,10 @@ public:
      * @return
      * A new Result<R>.
      */
-    static Result<R> moveSuccess(R && objectToMove) {
-        Result r;
-        new (r.dataAsResult()) R(objectToMove);
-        r.isSuccess_ = true;
-
-        return std::move(r);
+    Expected(R && objectToMove) :
+        isSuccess_{true}
+    {
+        new (dataAsResult()) R(objectToMove);
     }
 
     /**
@@ -118,12 +117,10 @@ public:
      * A new Result<R>.
      */
     template<typename ... Args>
-    static Result<R> emplaceSuccess(Args && ...args) {
-        Result r;
-        new (r.dataAsResult()) R(std::forward<Args>(args)...);
-        r.isSuccess_ = true;
-
-        return std::move(r);
+    Expected(Args && ...args) :
+        isSuccess_{true}
+    {
+        new (dataAsResult()) R(std::forward<Args>(args)...);
     }
 
     /**
@@ -132,37 +129,38 @@ public:
      * @param other
      * @return
      */
-    static Result<R> errorFromResult(Result<R> & other) {
-        Result<R> r;
-        new (r.dataAsError()) Error(std::move(other.error()));
+    template<typename OtherR>
+    static Expected<R, E> errorFromResult(Expected<OtherR, E> & other) {
+        Expected<R, E> r;
+        new (r.dataAsError()) E(std::move(other.error()));
         r.isSuccess_ = false;
 
-        return std::move(r);
+        return r;
     }
 
-    static Result<R> copyError(const Error & error) {
-        Result<R> r;
-        new (r.dataAsError()) Error(error);
+    static Expected<R, E> error(const E & error) {
+        Expected<R, E> r;
+        new (r.dataAsError()) E(error);
         r.isSuccess_ = false;
 
-        return std::move(r);
+        return r;
     }
 
-    static Result<R> moveError(Error && error) {
-        Result<R> r;
-        new (r.dataAsError()) Error(error);
+    static Expected<R, E> error(E && error) {
+        Expected<R, E> r;
+        new (r.dataAsError()) E(error);
         r.isSuccess_ = false;
 
-        return std::move(r);
+        return r;
     }
 
     template<typename ...Args>
-    static Result<R> emplaceError(Args && ...args) {
-        Result<R> r;
-        new (r.dataAsError()) Error(std::forward<Args>(args)...);
+    static Expected<R, E> emplaceError(Args && ...args) {
+        Expected<R, E> r;
+        new (r.dataAsError()) E(std::forward<Args>(args)...);
         r.isSuccess_ = false;
 
-        return std::move(r);
+        return r;
     }
 
     R& result() {
@@ -172,19 +170,21 @@ public:
         throw Exception(*dataAsError());
     }
 
-    Error& error() {
+    E& error() {
         if(hasError())
             return *dataAsError();
 
-        Error err;
-        err.add(ResultIsSuccessfulError::defaultError());
-        throw Exception(err);
+        throw Exception();
     }
 
-    Result<R> throwIfError() {
-        if(hasError())
-            throw Exception(*dataAsError());
-        return *this;
+    void throwIfError() {
+        if(hasError()) {
+            if constexpr(std::is_base_of<Error, E>::value) {
+                throw Exception();
+            } else {
+                throw Exception(*dataAsError());
+            }
+        }
     }
 
     R& operator * () {
@@ -203,28 +203,31 @@ public:
         return isSuccess_;
     }
 
-    ~Result() {
+    ~Expected() {
         if(isSuccess_)
             dataAsResult()->~R();
         else
-            dataAsError()->~Error();
+            dataAsError()->~E();
     }
 private:
-    Result()                = default;
+    Expected()                = default;
 
     inline R* dataAsResult() {
         return reinterpret_cast<R*>(&data_);
     }
 
-    inline Error* dataAsError() {
-        return reinterpret_cast<Error*>(&data_);
+    inline E* dataAsError() {
+        return reinterpret_cast<E*>(&data_);
     }
 
 private:
-    // data holds result_ or error_ content.
-    char data_[max_size(sizeof(R), sizeof(Error))];
+    // data holds R or E content.
+    char data_[max_size(sizeof(R), sizeof(E))];
 
     bool isSuccess_;
 };
+
+template<typename R>
+using Result = Expected<R, Error>;
 
 }

@@ -4,6 +4,8 @@ project(CppErr VERSION 0.1
     LANGUAGES CXX
 )
 
+set(CMAKE_CXX_STANDARD 17)
+
 option(CPPERR_BUILD_TESTS "Must the unit tests be built ?" ON)
 option(CPPERR_BUILD_STATIC "Must the library be build as STATIC ?" OFF)
 

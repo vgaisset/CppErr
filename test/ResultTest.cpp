@@ -14,6 +14,7 @@ struct Complex {
 Result<Complex> getErrorResult() {
     return ERR_RESULT(Complex, "Invalid number.");
 }
+
 #include <iostream>
 TEST_CASE("Result tests", "Tests the Result features.") {
 
@@ -35,7 +36,7 @@ TEST_CASE("Result tests", "Tests the Result features.") {
     }
 
     SECTION("A good result must not have an error, must have the successfully created object and requesting error must throw.") {
-        Result<Complex> r = Result<Complex>::emplaceSuccess(42., 12.);
+        Result<Complex> r(42., 12.);
 
         REQUIRE(!r.hasError());
         REQUIRE(r);
