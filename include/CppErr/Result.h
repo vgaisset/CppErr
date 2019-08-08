@@ -9,9 +9,9 @@ namespace cpperr {
 
 /**
  * @brief
- * -> An exception constructed using a cpperr::Error.
- * The stack trace contained in the error is saved as a string
- * and can be accessed through the what() function.
+ * -> An exception holding a message.
+ * If the exception is constructed using an Error, the stack trace
+ * is put in the message.
  * -> This exception is thrown when accessing an invalid field
  * in a cpperr::Result object.
  */
@@ -57,9 +57,9 @@ public:
         isSuccess_{other.isSuccess_}
     {
         if(isSuccess_)
-            new (dataAsResult()) R(*other.dataAsResult());
+            new (dataAsResult()) R(*other.dataAsConstResult());
         else
-            new (dataAsError()) E(*other.dataAsError());
+            new (dataAsError()) E(*other.dataAsConstError());
     }
 
     /**
@@ -80,12 +80,8 @@ public:
 
     /**
      * @brief
-     * Creates a Result<R> containing an object of type R and calls
-     * the copy constructor with the objectToCopy as parameter.
+     * Calls the R copy constrcutor.
      * @param objectToCopy
-     * The R object given to the object constructor.
-     * @return
-     * A new Result<R>.
      */
     Expected(const R & objectToCopy) :
         isSuccess_{true}
@@ -95,12 +91,8 @@ public:
 
     /**
      * @brief
-     * Creates a Result<R> containing an object of type R and calls
-     * the move constructor with the objectToMove as parameter.
+     * Calls the R move constructor.
      * @param objectToMove
-     * The R object given to the object constructor.
-     * @return
-     * A new Result<R>.
      */
     Expected(R && objectToMove) :
         isSuccess_{true}
@@ -110,11 +102,8 @@ public:
 
     /**
      * @brief
-     * Creates a Result<R> and emplace an object R.
+     * Creates an object of type R using the given args.
      * @param args
-     * The R object constrcutor arguments.
-     * @return
-     * A new Result<R>.
      */
     template<typename ... Args>
     Expected(Args && ...args) :
@@ -128,6 +117,7 @@ public:
      * Creates a Result<R> with an error and moves
      * @param other
      * @return
+     * The Expected object holding the error.
      */
     template<typename OtherR>
     static Expected<R, E> errorFromResult(Expected<OtherR, E> & other) {
@@ -138,6 +128,13 @@ public:
         return r;
     }
 
+    /**
+     * @brief
+     * Creates an Expected object, copies the given error and returns it.
+     * @param error
+     * @return
+     * The Expected object holding the error.
+     */
     static Expected<R, E> error(const E & error) {
         Expected<R, E> r;
         new (r.dataAsError()) E(error);
@@ -146,6 +143,13 @@ public:
         return r;
     }
 
+    /**
+     * @brief
+     * Creates an Expected object, moves the given error and returns it.
+     * @param error
+     * @return
+     * The Expected object holding the error.
+     */
     static Expected<R, E> error(E && error) {
         Expected<R, E> r;
         new (r.dataAsError()) E(error);
@@ -154,6 +158,14 @@ public:
         return r;
     }
 
+    /**
+     * @brief
+     * Creates an Expected object, emplaces an error using the given args
+     * and returns it.
+     * @param args
+     * @return
+     * The Expected object holding the error.
+     */
     template<typename ...Args>
     static Expected<R, E> emplaceError(Args && ...args) {
         Expected<R, E> r;
@@ -163,13 +175,26 @@ public:
         return r;
     }
 
+    /**
+     * @brief
+     * Returns a reference to the held R object.
+     * If there is an error and no R object, a cpperr::Exception
+     * is thrown instead.
+     * @return
+     * A reference to the held R object.
+     */
     R& result() {
-        if(isSuccess_)
-            return *dataAsResult();
+        throwIfError();
 
-        throw Exception(*dataAsError());
+        return *dataAsResult();
     }
 
+    /**
+     * @brief
+     * Returns a reference to the held E object.
+     * If there is no error but a R object, a cpperr::Exception is thrown
+     * @return
+     */
     E& error() {
         if(hasError())
             return *dataAsError();
@@ -177,24 +202,43 @@ public:
         throw Exception();
     }
 
-    void throwIfError() {
-        if(hasError()) {
-            if constexpr(std::is_base_of<Error, E>::value) {
-                throw Exception();
-            } else {
-                throw Exception(*dataAsError());
-            }
-        }
+    /**
+     * @brief
+     * Throws an Exception if the object is holding an error.
+     */
+    void throwIfError() const {
+        if(!isSuccess_)
+            throwError();
     }
 
+    /**
+     * @brief
+     * Returns a reference to the R object.
+     * See result() for more informations.
+     * @return
+     * A reference to the R object.
+     */
     R& operator * () {
         return result();
     }
 
+    /**
+     * @brief
+     * Returns a pointer to the R object.
+     * See result() for more informations.
+     * @return
+     * A pointer to the R object.
+     */
     R* operator -> () {
         return &result();
     }
 
+    /**
+     * @brief
+     * Does the object hold an error ?
+     * @return
+     * True if the object holds an object of type E, false otherwise.
+     */
     bool hasError() const {
         return !isSuccess_;
     }
@@ -220,13 +264,46 @@ private:
         return reinterpret_cast<E*>(&data_);
     }
 
-private:
-    // data holds R or E content.
-    char data_[max_size(sizeof(R), sizeof(E))];
+    inline const R * dataAsConstResult() const {
+        return reinterpret_cast<const R *>(&data_);
+    }
 
+    inline const E * dataAsConstError() const {
+        return reinterpret_cast<const E *>(&data_);
+    }
+
+    /**
+     * @brief
+     * Throws the error held by the object.
+     * If the object is not holding an error, the behavior is undefined.
+     * If cpperr::Error is a base of E, the thrown exception is constrcuted
+     * using the error held. Otherwise, an Exception without informations is thrown.
+     */
+    void throwError() const {
+        if constexpr(std::is_base_of<Error, E>::value)
+            throw Exception(*dataAsConstError());
+        else
+            throw Exception();
+    }
+
+private:
+    /**
+     * @brief
+     * Holds R or E content.
+     */
+    char data_[ max_size(sizeof(R), sizeof(E)) ];
+
+    /**
+     * @brief
+     * Is the Expected object holding a R object ?
+     */
     bool isSuccess_;
 };
 
+/**
+ * @brief
+ * Represents a cpperr::Expected object with cpperr::Error.
+ */
 template<typename R>
 using Result = Expected<R, Error>;
 
